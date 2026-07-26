@@ -1,0 +1,4 @@
+langchain_community
+langchain-text-splitters
+python-dotenv
+wikipedia
