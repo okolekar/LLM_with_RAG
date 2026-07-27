@@ -11,8 +11,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
     handlers=[
-        logging.StreamHandler(),                # prints to console, like before
-        logging.FileHandler("Data_injection_logs.log")  # <-- NEW: writes to a file too
+        logging.StreamHandler(),                # prints to console
+        logging.FileHandler("Data_injection_logs.log")  # <-- Writes to a file
     ]
 )
 logger = logging.getLogger("Data_injection_logs")
