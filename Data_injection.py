@@ -1,5 +1,6 @@
 import logging
 import wikipedia
+from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import OllamaEmbeddings
 from langchain_community.document_loaders import WikipediaLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -35,20 +36,27 @@ splitted_documents = text_splitter.split_documents(document)
 
 logger.info(f"Split into {len(splitted_documents)} chunks")
 
-texts = [doc.page_content for doc in splitted_documents]
-metadatas = [doc.metadata for doc in splitted_documents] 
-
-
 logger.info("Initializing embedder (qwen3-embedding via Ollama)")
 embedder = (
     OllamaEmbeddings(model="qwen3-embedding")
 )
 
-logger.info(f"Embedding {len(texts)} chunks...")
+logger.info(f"Initializing FAISS database, and Embedding {len(splitted_documents)} chunks...")
+database_name = "Tourism_Cities"
 try:
-    r1 = embedder.embed_documents(texts)
+  cities_db = FAISS.from_documents(
+    splitted_documents,
+    embedder
+  )
 except Exception as e:
     logger.exception(f"Embedding failed: {e}")
     raise
 
-logger.info(f"Done. {len(r1)} embeddings generated, dimension = {len(r1[0])}")
+logger.info(f"Saving FAISS database, under the name {database_name}")
+try:
+  cities_db.save_local(database_name)
+except Exception as e:
+  logger.exception(f"Saving database failed: {e}")
+  raise
+
+logger.info("*** All data injection operations completed! ***")
