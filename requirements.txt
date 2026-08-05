@@ -1,5 +1,7 @@
-langchain_community
+langchain_core
+langchain_ollama
 langchain-text-splitters
 python-dotenv
 wikipedia
 faiss-gpu
+streamlit
