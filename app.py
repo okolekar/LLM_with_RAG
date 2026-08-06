@@ -13,12 +13,18 @@ load_dotenv()
 os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY", "")
 os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGCHAIN_TRACING_V2", "true")
 os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT", "Terminal-Gradio-App")
+os.environ["LANGCHAIN_ENDPOINT"] = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
 
 # Core LangChain Logic
 prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a travel guide assistant. Please respond to the tourist query"),
-        ("user", "Query:{query}")
+        (
+            "system", 
+            "You are an expert travel guide assistant. When a user provides a city name, "
+            "generate a comprehensive travel guide including: top 3 attractions, "
+            "best local food to try, and a quick practical travel tip."
+        ),
+        ("user", "City to explore: {query}")
     ]
 )
 
