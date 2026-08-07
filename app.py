@@ -22,7 +22,7 @@ DEFAULT_DATABASE_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 DEFAULT_EMBEDDER = "qwen3-embedding"
 
 # Core LangChain Logic
-prompt = ChatPromptTemplate.from_messages(
+prompt_with_context = ChatPromptTemplate.from_messages(
     [
         (
             "system",
@@ -34,9 +34,21 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
+fallback_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are an expert travel guide assistant."
+            "Answer with a concise travel guide that includes top attractions, local food to try, and a practical tip.",
+        ),
+        ("user", "City to explore: {query}"),
+    ]
+)
+
 llm = OllamaLLM(model="gemma:2b")
 output_parser = StrOutputParser()
-chain = prompt | llm | output_parser
+chain_with_context = prompt_with_context | llm | output_parser
+fallback_chain = fallback_prompt | llm | output_parser
 
 
 @lru_cache(maxsize=1)
@@ -57,6 +69,15 @@ def build_context_text(documents):
     return "\n\n".join(context_parts)
 
 
+def city_in_database(city_name, vectorstore):
+    normalized_name = city_name.strip().lower()
+    titles = {
+        doc.metadata.get("title", "").strip().lower()
+        for doc in vectorstore.docstore._dict.values()
+    }
+    return normalized_name in titles
+
+
 # Function that the UI will call
 def get_travel_guide(city_name):
     if not city_name.strip():
@@ -64,13 +85,17 @@ def get_travel_guide(city_name):
 
     try:
         vectorstore = load_vectorstore()
-        documents = vectorstore.similarity_search(city_name, k=3)
-        context_text = build_context_text(documents)
+        if city_in_database(city_name, vectorstore):
+            documents = vectorstore.similarity_search(city_name, k=3)
+            context_text = build_context_text(documents)
+            return chain_with_context.invoke({"query": city_name, "context": context_text})
 
-        if not context_text:
-            return "I could not find relevant information in the local knowledge base for that city."
-
-        return chain.invoke({"query": city_name, "context": context_text})
+        fallback_text = (
+            "I could not find that city in the local knowledge base. "
+            "The answer below is based on the model's general training data and may be less reliable."
+        )
+        general_answer = fallback_chain.invoke({"query": city_name})
+        return f"{fallback_text}\n\n{general_answer}"
     except Exception as e:
         return f"Error: {e}\n\nMake sure Ollama server is running and the FAISS database exists."
 
