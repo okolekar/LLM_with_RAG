@@ -1,7 +1,9 @@
 langchain_core
 langchain_ollama
+langchain-community
 langchain-text-splitters
 python-dotenv
 wikipedia
 faiss-gpu
 streamlit
+gradio
