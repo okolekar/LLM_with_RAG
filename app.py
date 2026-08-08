@@ -8,6 +8,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import OllamaLLM
+from check import city_exists, ollama_model_available
 
 # Loading environment variables
 load_dotenv()
@@ -69,23 +70,21 @@ def build_context_text(documents):
     return "\n\n".join(context_parts)
 
 
-def city_in_database(city_name, vectorstore):
-    normalized_name = city_name.strip().lower()
-    titles = {
-        doc.metadata.get("title", "").strip().lower()
-        for doc in vectorstore.docstore._dict.values()
-    }
-    return normalized_name in titles
-
-
 # Function that the UI will call
 def get_travel_guide(city_name):
     if not city_name.strip():
         return "Please enter a valid city name!"
 
     try:
-        vectorstore = load_vectorstore()
-        if city_in_database(city_name, vectorstore):
+        if not ollama_model_available():
+            return (
+                "Error: Ollama server or gemma:2b model is not reachable. "
+                "Please start Ollama and ensure the gemma:2b model is available."
+            )
+
+        embedder = OllamaEmbeddings(model=DEFAULT_EMBEDDER)
+        if city_exists(city_name, embedder):
+            vectorstore = load_vectorstore()
             documents = vectorstore.similarity_search(city_name, k=3)
             context_text = build_context_text(documents)
             return chain_with_context.invoke({"query": city_name, "context": context_text})
@@ -97,7 +96,7 @@ def get_travel_guide(city_name):
         general_answer = fallback_chain.invoke({"query": city_name})
         return f"{fallback_text}\n\n{general_answer}"
     except Exception as e:
-        return f"Error: {e}\n\nMake sure Ollama server is running and the FAISS database exists."
+        return f"Error: {e}\n\nMake sure Ollama server is running, the gemma:2b model is reachable, and the FAISS database exists."
 
 
 # ==========================================

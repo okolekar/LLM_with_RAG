@@ -1,5 +1,8 @@
 import os
 import logging
+import urllib.parse
+import urllib.request
+from urllib.error import HTTPError, URLError
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import OllamaEmbeddings
 
@@ -7,6 +10,9 @@ DEFAULT_DATABASE_NAME = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "Tourism_Cities"
 )
 DEFAULT_EMBEDDER = "qwen3-embedding"
+DEFAULT_OLLAMA_HOST = os.getenv("OLLAMA_HOST", "127.0.0.1")
+DEFAULT_OLLAMA_PORT = int(os.getenv("OLLAMA_PORT", "11434"))
+DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma:2b")
 
 # --- logger setup: shares data_ingestion.log, but with its own logger name ---
 log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logs")
@@ -63,6 +69,46 @@ def city_exists(
     exists = normalized_query in existing_titles
     logger.info(f"'{query}' {'already exists' if exists else 'not found'} in '{database_name}'.")
     return exists
+
+
+def ollama_model_available(
+    model_name: str = DEFAULT_OLLAMA_MODEL,
+    host: str = DEFAULT_OLLAMA_HOST,
+    port: int = DEFAULT_OLLAMA_PORT,
+    timeout: int = 5,
+) -> bool:
+    """
+    Verify that the Ollama server is reachable and that the specified model is available.
+    """
+    endpoint = f"http://{host}:{port}/v1/models/{urllib.parse.quote(model_name, safe='')}"
+    request = urllib.request.Request(endpoint, method="GET")
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            if response.status == 200:
+                logger.info(f"Ollama model '{model_name}' is available at {host}:{port}.")
+                return True
+            logger.warning(
+                "Ollama model '%s' responded with status %s.", model_name, response.status
+            )
+            return False
+    except HTTPError as exc:
+        logger.warning(
+            "Ollama model '%s' check failed with HTTP status %s: %s",
+            model_name,
+            exc.code,
+            exc.reason,
+        )
+    except URLError as exc:
+        logger.warning(
+            "Ollama model '%s' check failed because the server is unreachable: %s",
+            model_name,
+            exc,
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error while checking Ollama model '%s': %s", model_name, exc)
+
+    return False
 
 
 if __name__ == "__main__":
